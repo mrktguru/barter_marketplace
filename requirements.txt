@@ -12,9 +12,6 @@ psycopg2-binary==2.9.9
 redis==5.0.1
 celery==5.3.6
 
-# Payments
-yookassa==2.5.1
-
 # Utils
 python-dotenv==1.0.0
 pillow==10.2.0  # для работы с изображениями
