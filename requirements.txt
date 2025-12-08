@@ -1,0 +1,26 @@
+# Telegram Bot
+aiogram==3.4.1
+aiohttp==3.9.1
+
+# Database
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+psycopg2-binary==2.9.9
+
+# Redis & Celery
+redis==5.0.1
+celery==5.3.6
+
+# Payments
+yookassa==2.5.1
+
+# Utils
+python-dotenv==1.0.0
+pillow==10.2.0  # для работы с изображениями
+imagehash==4.3.1  # для проверки дубликатов изображений
+python-Levenshtein==0.25.0  # для проверки схожести текста
+
+# Monitoring (опционально)
+prometheus-client==0.19.0
+sentry-sdk==1.39.2
