@@ -1,3 +1,3 @@
-from . import start, admin
+from . import start, admin, post_creator
 
-__all__ = ['start', 'admin']
+__all__ = ['start', 'admin', 'post_creator']
