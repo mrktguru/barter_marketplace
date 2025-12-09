@@ -135,15 +135,22 @@ def get_conditions_keyboard(selected: list = None) -> InlineKeyboardMarkup:
     return keyboard
 
 
-def get_preview_keyboard() -> InlineKeyboardMarkup:
+def get_preview_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура для предпросмотра поста"""
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🕐 Опубликовать в очереди", callback_data="publish_queue")],
-            [InlineKeyboardButton(text="⚡ Приоритетная публикация", callback_data="publish_priority")],
-            [InlineKeyboardButton(text="💾 Сохранить в черновики", callback_data="save_draft")],
-            [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_post")],
-            [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_post")],
-        ]
-    )
+    buttons = [
+        [InlineKeyboardButton(text="🕐 Опубликовать в очереди", callback_data="publish_queue")],
+        [InlineKeyboardButton(text="⚡ Приоритетная публикация", callback_data="publish_priority")],
+    ]
+
+    # Добавляем кнопку "Опубликовать сразу" только для админов
+    if is_admin:
+        buttons.append([InlineKeyboardButton(text="🚀 Опубликовать сразу", callback_data="publish_now")])
+
+    buttons.extend([
+        [InlineKeyboardButton(text="💾 Сохранить в черновики", callback_data="save_draft")],
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="edit_post")],
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="cancel_post")],
+    ])
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
