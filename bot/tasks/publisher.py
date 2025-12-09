@@ -76,24 +76,38 @@ def publish_post_to_channel(db: Session, post):
 
         text = format_post_for_channel(post_data)
 
-        # TODO: Здесь должна быть реальная публикация через Telegram Bot API
-        # Для этого нужно передать bot instance в задачу Celery
-        # Пример:
-        # if post.image_file_id:
-        #     await bot.send_photo(channel_id, post.image_file_id, caption=text, parse_mode="HTML")
-        # else:
-        #     await bot.send_message(channel_id, text, parse_mode="HTML")
+        # Отправка в Telegram канал
+        from bot.utils.telegram_sender import send_photo_sync, send_message_sync
 
-        # Обновление статуса поста
-        update_post(
-            db=db,
-            post=post,
-            status='published',
-            published_at=datetime.now()
-        )
+        success = False
+        if post.image_file_id:
+            success = send_photo_sync(
+                chat_id=channel_id,
+                photo=post.image_file_id,
+                caption=text,
+                parse_mode="HTML"
+            )
+        else:
+            success = send_message_sync(
+                chat_id=channel_id,
+                text=text,
+                parse_mode="HTML"
+            )
 
-        # TODO: Отправка уведомления пользователю о публикации
-        print(f"Пост {post.id} опубликован в канал {channel_id}")
+        if success:
+            # Обновление статуса поста
+            update_post(
+                db=db,
+                post=post,
+                status='published',
+                published_at=datetime.now()
+            )
+
+            print(f"✅ Пост {post.id} опубликован в канал {channel_id}")
+
+            # TODO: Отправка уведомления пользователю о публикации
+        else:
+            print(f"❌ Не удалось опубликовать пост {post.id} в канал")
 
     except Exception as e:
-        print(f"Ошибка при публикации поста {post.id}: {e}")
+        print(f"❌ Ошибка при публикации поста {post.id}: {e}")

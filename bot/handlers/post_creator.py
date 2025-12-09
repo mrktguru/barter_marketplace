@@ -36,8 +36,10 @@ async def create_post_start(message: Message, state: FSMContext):
             await message.answer("❌ Ошибка: пользователь не найден. Отправьте /start для регистрации.")
             return
 
-        # Очистка предыдущего состояния
-        await state.clear()
+        # ВАЖНО: Очистка любого предыдущего состояния
+        current_state = await state.get_state()
+        if current_state:
+            await state.clear()
 
         text = (
             "📝 <b>Создание нового поста</b>\n\n"
@@ -470,6 +472,14 @@ async def show_preview(message_or_callback, state: FSMContext):
     """Показ предпросмотра поста"""
     data = await state.get_data()
 
+    # Получаем telegram_id для проверки прав администратора
+    if isinstance(message_or_callback, Message):
+        telegram_id = message_or_callback.from_user.id
+    else:
+        telegram_id = message_or_callback.from_user.id
+
+    is_admin = config.is_admin(telegram_id)
+
     # Формирование текста предпросмотра
     text = "📋 <b>Предпросмотр поста</b>\n\n"
 
@@ -495,20 +505,20 @@ async def show_preview(message_or_callback, state: FSMContext):
             await message_or_callback.answer_photo(
                 photo=data['image_file_id'],
                 caption=text,
-                reply_markup=get_preview_keyboard(),
+                reply_markup=get_preview_keyboard(is_admin=is_admin),
                 parse_mode="HTML"
             )
         else:
             await message_or_callback.answer(
                 text,
-                reply_markup=get_preview_keyboard(),
+                reply_markup=get_preview_keyboard(is_admin=is_admin),
                 parse_mode="HTML"
             )
     else:
         # Для callback просто редактируем текст
         await message_or_callback.edit_text(
             text,
-            reply_markup=get_preview_keyboard(),
+            reply_markup=get_preview_keyboard(is_admin=is_admin),
             parse_mode="HTML"
         )
 
@@ -639,6 +649,123 @@ async def back_to_preview(callback: CallbackQuery, state: FSMContext):
     """Возврат к предпросмотру"""
     await callback.answer()
     await show_preview(callback.message, state)
+
+
+@router.callback_query(PostCreation.preview, F.data == "publish_now")
+async def publish_now(callback: CallbackQuery, state: FSMContext):
+    """Немедленная публикация (только для админов)"""
+    db = next(get_db())
+    try:
+        user = get_user_by_telegram_id(db, callback.from_user.id)
+
+        # Проверка прав администратора
+        if not config.is_admin(user.telegram_id):
+            await callback.answer("❌ Доступно только администраторам", show_alert=True)
+            return
+
+        await callback.answer()
+
+        data = await state.get_data()
+
+        # Получение ID канала из настроек
+        from bot.database.crud import get_setting_value
+        channel_id = get_setting_value(db, 'channel_id')
+
+        if not channel_id:
+            await callback.message.answer(
+                "❌ <b>Ошибка!</b>\n\n"
+                "ID канала не настроен. Настройте канал в админ-панели.",
+                parse_mode="HTML"
+            )
+            return
+
+        # Формирование текста поста
+        from bot.utils.post_formatter import format_post_for_channel
+        post_data = {
+            'product_name': data.get('product_name'),
+            'has_payment': data.get('payment'),
+            'payment_amount': data.get('payment_amount'),
+            'marketplace': data.get('marketplace'),
+            'expected_date': data.get('expected_date'),
+            'blog_theme': data.get('blog_theme'),
+            'social_networks': [sn.strip() for sn in data.get('social_networks', '').split(',') if sn.strip()],
+            'ad_formats': data.get('ad_formats'),
+            'conditions': data.get('conditions'),
+        }
+
+        text = format_post_for_channel(post_data)
+
+        # Отправка в канал
+        from aiogram import Bot
+        bot = Bot(token=config.BOT_TOKEN)
+
+        try:
+            if data.get('image_file_id'):
+                await bot.send_photo(
+                    chat_id=channel_id,
+                    photo=data['image_file_id'],
+                    caption=text,
+                    parse_mode="HTML"
+                )
+            else:
+                await bot.send_message(
+                    chat_id=channel_id,
+                    text=text,
+                    parse_mode="HTML"
+                )
+
+            # Сохранение поста в базу со статусом published
+            social_networks_str = data.get('social_networks', '')
+            social_networks_list = [sn.strip() for sn in social_networks_str.split(',') if sn.strip()]
+
+            from datetime import datetime
+            post_db_data = {
+                'user_id': user.id,
+                'product_name': data.get('product_name'),
+                'has_payment': data.get('payment'),
+                'payment_amount': data.get('payment_amount'),
+                'marketplace': data.get('marketplace'),
+                'expected_date': data.get('expected_date'),
+                'blog_theme': data.get('blog_theme'),
+                'social_networks': social_networks_list,
+                'ad_formats': data.get('ad_formats'),
+                'conditions': data.get('conditions'),
+                'image_file_id': data.get('image_file_id'),
+                'status': 'published',
+                'published_at': datetime.now()
+            }
+
+            post = create_post(db, **post_db_data)
+
+            text = (
+                "✅ <b>Пост успешно опубликован!</b>\n\n"
+                f"Пост #{post.id} был немедленно опубликован в канале.\n\n"
+                "Вы можете просмотреть его в разделе 'Мои публикации'."
+            )
+
+            keyboard = get_admin_menu_keyboard() if config.is_admin(user.telegram_id) else get_main_menu_keyboard()
+            await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+            try:
+                await callback.message.delete()
+            except:
+                pass
+
+            await state.clear()
+
+        except Exception as e:
+            await callback.message.answer(
+                f"❌ <b>Ошибка при публикации!</b>\n\n"
+                f"Не удалось опубликовать пост в канал.\n"
+                f"Ошибка: {str(e)}",
+                parse_mode="HTML"
+            )
+
+        finally:
+            await bot.session.close()
+
+    finally:
+        db.close()
 
 
 @router.callback_query(PostCreation.preview, F.data == "save_draft")
