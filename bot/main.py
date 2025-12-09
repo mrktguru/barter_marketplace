@@ -5,7 +5,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.config import config
 from bot.database import init_db
-from bot.handlers import start, admin, post_creator
+from bot.handlers import start, admin, post_creator, my_posts
 
 # Настройка логирования
 logging.basicConfig(
@@ -40,6 +40,7 @@ async def main():
     dp.include_router(start.router)
     dp.include_router(admin.router)
     dp.include_router(post_creator.router)
+    dp.include_router(my_posts.router)
 
     logger.info("🤖 Бот запущен и готов к работе")
 

@@ -554,11 +554,32 @@ async def publish_to_queue(callback: CallbackQuery, state: FSMContext):
         # Получение цены очереди
         queue_price = get_setting_value(db, 'queue_price', '0')
 
+        # Расчет примерного времени публикации
+        from datetime import datetime, timedelta
+        posts_per_day = int(get_setting_value(db, 'posts_per_day', '5'))
+        schedule_times = get_setting_value(db, 'schedule_times', '10:00,13:00,16:00,19:00,22:00')
+
+        # Вычисляем на какой день попадает пост
+        days_ahead = (queue_position - 1) // posts_per_day
+        post_index_in_day = (queue_position - 1) % posts_per_day
+
+        # Получаем время публикации
+        times_list = [t.strip() for t in schedule_times.split(',')]
+        if post_index_in_day < len(times_list):
+            pub_time = times_list[post_index_in_day]
+        else:
+            pub_time = times_list[-1]
+
+        # Рассчитываем дату
+        pub_date = datetime.now().date() + timedelta(days=days_ahead)
+        estimated_time = f"{pub_date.strftime('%d.%m.%Y')} в {pub_time}"
+
         text = (
             "✅ <b>Пост добавлен в очередь!</b>\n\n"
             f"Позиция в очереди: №{queue_position}\n"
+            f"Примерное время публикации: {estimated_time}\n"
             f"Стоимость публикации: {queue_price}₽\n\n"
-            "Ваш пост будет опубликован в порядке очереди.\n"
+            "📢 Пост будет автоматически опубликован в канале по расписанию.\n"
             "Вы можете отслеживать статус в разделе 'Мои публикации'."
         )
 
@@ -595,11 +616,68 @@ async def publish_priority(callback: CallbackQuery, state: FSMContext):
             "• Публикация в выбранное вами время\n"
             "• Гарантированное размещение\n"
             "• Приоритет над обычной очередью\n\n"
-            "Для оплаты свяжитесь с администратором.\n\n"
-            "Функционал оплаты будет добавлен позже."
+            "⚠️ Функционал оплаты будет добавлен позже.\n"
+            "Пока вы можете опубликовать пост в обычной очереди.\n\n"
+            "Вернуться к выбору?"
         )
 
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🕐 Опубликовать в очереди", callback_data="publish_queue")],
+            [InlineKeyboardButton(text="💾 Сохранить в черновики", callback_data="save_draft")],
+            [InlineKeyboardButton(text="◀️ Назад к предпросмотру", callback_data="back_to_preview")]
+        ])
+
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+    finally:
+        db.close()
+
+
+@router.callback_query(PostCreation.preview, F.data == "back_to_preview")
+async def back_to_preview(callback: CallbackQuery, state: FSMContext):
+    """Возврат к предпросмотру"""
+    await callback.answer()
+    await show_preview(callback.message, state)
+
+
+@router.callback_query(PostCreation.preview, F.data == "save_draft")
+async def save_draft(callback: CallbackQuery, state: FSMContext):
+    """Сохранение в черновики"""
+    await callback.answer()
+
+    db = next(get_db())
+    try:
         user = get_user_by_telegram_id(db, callback.from_user.id)
+        data = await state.get_data()
+
+        # Преобразуем social_networks в список
+        social_networks_str = data.get('social_networks', '')
+        social_networks_list = [sn.strip() for sn in social_networks_str.split(',') if sn.strip()]
+
+        post_data = {
+            'user_id': user.id,
+            'product_name': data.get('product_name'),
+            'has_payment': data.get('payment'),
+            'payment_amount': data.get('payment_amount'),
+            'marketplace': data.get('marketplace'),
+            'expected_date': data.get('expected_date'),
+            'blog_theme': data.get('blog_theme'),
+            'social_networks': social_networks_list,
+            'ad_formats': data.get('ad_formats'),
+            'conditions': data.get('conditions'),
+            'image_file_id': data.get('image_file_id'),
+            'status': 'draft'
+        }
+
+        post = create_post(db, **post_data)
+
+        text = (
+            "💾 <b>Пост сохранен в черновики!</b>\n\n"
+            f"ID черновика: #{post.id}\n\n"
+            "Вы можете завершить и опубликовать его позже в разделе 'Мои черновики'."
+        )
+
         keyboard = get_admin_menu_keyboard() if config.is_admin(user.telegram_id) else get_main_menu_keyboard()
 
         await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
