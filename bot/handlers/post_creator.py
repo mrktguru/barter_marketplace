@@ -529,15 +529,19 @@ async def publish_to_queue(callback: CallbackQuery, state: FSMContext):
         queue_position = get_next_queue_position(db)
 
         # Создание поста
+        # Преобразуем social_networks в список
+        social_networks_str = data.get('social_networks', '')
+        social_networks_list = [sn.strip() for sn in social_networks_str.split(',') if sn.strip()]
+
         post_data = {
             'user_id': user.id,
             'product_name': data.get('product_name'),
-            'payment': data.get('payment'),
+            'has_payment': data.get('payment'),  # Исправлено: payment -> has_payment
             'payment_amount': data.get('payment_amount'),
             'marketplace': data.get('marketplace'),
             'expected_date': data.get('expected_date'),
             'blog_theme': data.get('blog_theme'),
-            'social_networks': data.get('social_networks'),
+            'social_networks': social_networks_list,  # Передаем как список
             'ad_formats': data.get('ad_formats'),
             'conditions': data.get('conditions'),
             'image_file_id': data.get('image_file_id'),
