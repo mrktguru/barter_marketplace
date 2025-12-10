@@ -2,8 +2,8 @@ from datetime import datetime
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from bot.database import SessionLocal, get_setting_value
-from bot.database.crud import get_posts_in_queue, get_scheduled_posts, update_post, recalculate_queue_positions
+from bot.database import SessionLocal
+from bot.database.crud import get_posts_in_queue, get_scheduled_posts, update_post, recalculate_queue_positions, get_setting_value
 from bot.utils.post_formatter import format_post_for_channel
 
 
