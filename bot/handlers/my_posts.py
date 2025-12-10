@@ -133,6 +133,138 @@ async def my_posts_queue_handler(callback: CallbackQuery):
         db.close()
 
 
+@router.callback_query(F.data.startswith("my_posts_scheduled:"))
+async def my_posts_scheduled_handler(callback: CallbackQuery):
+    """Запланированные посты"""
+    page = int(callback.data.split(':')[1])
+    page_size = 5
+
+    db = next(get_db())
+    try:
+        user = get_user_by_telegram_id(db, callback.from_user.id)
+        posts = db.query(Post).filter(
+            Post.user_id == user.id,
+            Post.status == 'scheduled'
+        ).order_by(Post.scheduled_time).all()
+
+        if not posts:
+            await callback.answer("Нет запланированных постов", show_alert=True)
+            return
+
+        total_pages = (len(posts) - 1) // page_size + 1
+        page = max(1, min(page, total_pages))
+
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_posts = posts[start_idx:end_idx]
+
+        posts_text = ""
+        for post in page_posts:
+            scheduled_time = post.scheduled_time.strftime('%d.%m.%Y %H:%M') if post.scheduled_time else 'Не указано'
+            posts_text += (
+                f"\n📝 <b>{post.product_name[:40]}</b>\n"
+                f"   ID: {post.id}\n"
+                f"   Запланировано: {scheduled_time}\n"
+                f"   Создан: {post.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+            )
+
+        text = (
+            f"⚡ <b>Запланированные посты (стр. {page}/{total_pages})</b>\n\n"
+            f"Всего: {len(posts)} постов\n"
+            f"{posts_text}\n"
+            "Нажмите на ID для просмотра деталей."
+        )
+
+        buttons = []
+        for post in page_posts:
+            buttons.append([InlineKeyboardButton(
+                text=f"ID {post.id}: {post.product_name[:25]}...",
+                callback_data=f"my_post_detail:{post.id}"
+            )])
+
+        # Навигация
+        nav_buttons = []
+        if page > 1:
+            nav_buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"my_posts_scheduled:{page-1}"))
+        if page < total_pages:
+            nav_buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"my_posts_scheduled:{page+1}"))
+
+        if nav_buttons:
+            buttons.append(nav_buttons)
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+    finally:
+        db.close()
+
+
+@router.callback_query(F.data.startswith("my_posts_published:"))
+async def my_posts_published_handler(callback: CallbackQuery):
+    """Опубликованные посты"""
+    page = int(callback.data.split(':')[1])
+    page_size = 5
+
+    db = next(get_db())
+    try:
+        user = get_user_by_telegram_id(db, callback.from_user.id)
+        posts = db.query(Post).filter(
+            Post.user_id == user.id,
+            Post.status == 'published'
+        ).order_by(Post.published_at.desc()).all()
+
+        if not posts:
+            await callback.answer("Нет опубликованных постов", show_alert=True)
+            return
+
+        total_pages = (len(posts) - 1) // page_size + 1
+        page = max(1, min(page, total_pages))
+
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_posts = posts[start_idx:end_idx]
+
+        posts_text = ""
+        for post in page_posts:
+            published_time = post.published_at.strftime('%d.%m.%Y %H:%M') if post.published_at else 'Не указано'
+            posts_text += (
+                f"\n📝 <b>{post.product_name[:40]}</b>\n"
+                f"   ID: {post.id}\n"
+                f"   Опубликовано: {published_time}\n"
+                f"   Создан: {post.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+            )
+
+        text = (
+            f"✅ <b>Опубликованные посты (стр. {page}/{total_pages})</b>\n\n"
+            f"Всего: {len(posts)} постов\n"
+            f"{posts_text}\n"
+            "Нажмите на ID для просмотра деталей."
+        )
+
+        buttons = []
+        for post in page_posts:
+            buttons.append([InlineKeyboardButton(
+                text=f"ID {post.id}: {post.product_name[:25]}...",
+                callback_data=f"my_post_detail:{post.id}"
+            )])
+
+        # Навигация
+        nav_buttons = []
+        if page > 1:
+            nav_buttons.append(InlineKeyboardButton(text="◀️", callback_data=f"my_posts_published:{page-1}"))
+        if page < total_pages:
+            nav_buttons.append(InlineKeyboardButton(text="▶️", callback_data=f"my_posts_published:{page+1}"))
+
+        if nav_buttons:
+            buttons.append(nav_buttons)
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+    finally:
+        db.close()
+
+
 @router.callback_query(F.data.startswith("my_post_detail:"))
 async def my_post_detail_handler(callback: CallbackQuery):
     """Детали поста пользователя"""

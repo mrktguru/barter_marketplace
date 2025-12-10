@@ -820,6 +820,28 @@ async def save_draft(callback: CallbackQuery, state: FSMContext):
         db.close()
 
 
+# ===== РЕДАКТИРОВАНИЕ И НАВИГАЦИЯ =====
+
+@router.callback_query(PostCreation.preview, F.data == "edit_post")
+async def edit_post_handler(callback: CallbackQuery, state: FSMContext):
+    """Редактирование поста (функция в разработке)"""
+    await callback.answer(
+        "⚠️ Функция редактирования будет добавлена в следующем обновлении.\n"
+        "Пока вы можете отменить создание и начать заново, или сохранить в черновики.",
+        show_alert=True
+    )
+
+
+@router.callback_query(F.data == "back")
+async def back_button_handler(callback: CallbackQuery, state: FSMContext):
+    """Обработчик кнопки 'Назад' (функция в разработке)"""
+    await callback.answer(
+        "⚠️ Навигация 'Назад' будет добавлена в следующем обновлении.\n"
+        "Пока вы можете отменить создание и начать заново.",
+        show_alert=True
+    )
+
+
 # ===== ОТМЕНА СОЗДАНИЯ =====
 
 @router.callback_query(F.data == "cancel_post")
