@@ -14,6 +14,7 @@ celery==5.3.6
 
 # Utils
 python-dotenv==1.0.0
+requests==2.31.0  # для синхронных HTTP запросов (Telegram API в Celery)
 pillow==10.2.0  # для работы с изображениями
 imagehash==4.3.1  # для проверки дубликатов изображений
 python-Levenshtein==0.25.0  # для проверки схожести текста
