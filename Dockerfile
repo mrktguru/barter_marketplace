@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Установка системных зависимостей
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     build-essential \
@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     liblcms2-dev \
     libopenjp2-7-dev \
-    libtiff5-dev \
+    libtiff-dev \
     libwebp-dev \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Рабочая директория
