@@ -1,0 +1,16 @@
+FROM python:3.11
+
+# Рабочая директория
+WORKDIR /app
+
+# Копирование зависимостей
+COPY requirements.txt .
+
+# Установка Python зависимостей
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Копирование кода приложения
+COPY . .
+
+CMD ["python", "-m", "bot.main"]

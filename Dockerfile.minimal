@@ -1,20 +1,9 @@
 FROM python:3.11-slim
 
-# Установка системных зависимостей
+# Минимальные зависимости для работы PostgreSQL и базовых библиотек
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    g++ \
-    build-essential \
-    python3-dev \
-    postgresql-client \
     libpq-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    libfreetype6-dev \
-    liblcms2-dev \
-    libopenjp2-7-dev \
-    libtiff-dev \
-    libwebp-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,8 +19,5 @@ RUN pip install --upgrade pip && \
 
 # Копирование кода приложения
 COPY . .
-
-# Запуск миграций при старте (опционально)
-# RUN alembic upgrade head
 
 CMD ["python", "-m", "bot.main"]
