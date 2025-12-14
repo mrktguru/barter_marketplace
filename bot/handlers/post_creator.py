@@ -439,7 +439,7 @@ async def process_conditions(callback: CallbackQuery, state: FSMContext):
         await state.update_data(conditions=conditions_str)
 
         # Переход к предпросмотру
-        await show_preview(callback.message, state)
+        await show_preview(callback, state)
 
     else:
         condition = condition_map.get(callback.data)
@@ -473,9 +473,12 @@ async def show_preview(message_or_callback, state: FSMContext):
     data = await state.get_data()
 
     # Получаем telegram_id для проверки прав администратора
-    if isinstance(message_or_callback, Message):
+    if isinstance(message_or_callback, CallbackQuery):
+        telegram_id = message_or_callback.from_user.id
+    elif isinstance(message_or_callback, Message):
         telegram_id = message_or_callback.from_user.id
     else:
+        # Для совместимости со старыми вызовами
         telegram_id = message_or_callback.from_user.id
 
     is_admin = config.is_admin(telegram_id)
@@ -483,7 +486,7 @@ async def show_preview(message_or_callback, state: FSMContext):
     # Отладка
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"DEBUG: telegram_id={telegram_id}, type={type(telegram_id)}, is_admin={is_admin}, ADMIN_IDS={config.ADMIN_IDS}")
+    logger.info(f"DEBUG: telegram_id={telegram_id}, type={type(message_or_callback).__name__}, is_admin={is_admin}, ADMIN_IDS={config.ADMIN_IDS}")
 
     # Формирование текста предпросмотра
     text = "📋 <b>Предпросмотр поста</b>\n\n"
@@ -504,7 +507,27 @@ async def show_preview(message_or_callback, state: FSMContext):
 
     await state.set_state(PostCreation.preview)
 
-    if isinstance(message_or_callback, Message):
+    if isinstance(message_or_callback, CallbackQuery):
+        # Для callback удаляем старое сообщение и отправляем новое
+        try:
+            await message_or_callback.message.delete()
+        except:
+            pass
+
+        if data.get('image_file_id'):
+            await message_or_callback.message.answer_photo(
+                photo=data['image_file_id'],
+                caption=text,
+                reply_markup=get_preview_keyboard(is_admin=is_admin),
+                parse_mode="HTML"
+            )
+        else:
+            await message_or_callback.message.answer(
+                text,
+                reply_markup=get_preview_keyboard(is_admin=is_admin),
+                parse_mode="HTML"
+            )
+    elif isinstance(message_or_callback, Message):
         # Если есть изображение, отправляем с ним
         if data.get('image_file_id'):
             await message_or_callback.answer_photo(
@@ -519,13 +542,6 @@ async def show_preview(message_or_callback, state: FSMContext):
                 reply_markup=get_preview_keyboard(is_admin=is_admin),
                 parse_mode="HTML"
             )
-    else:
-        # Для callback просто редактируем текст
-        await message_or_callback.edit_text(
-            text,
-            reply_markup=get_preview_keyboard(is_admin=is_admin),
-            parse_mode="HTML"
-        )
 
 
 # ===== ПУБЛИКАЦИЯ =====
@@ -659,7 +675,7 @@ async def publish_priority(callback: CallbackQuery, state: FSMContext):
 async def back_to_preview(callback: CallbackQuery, state: FSMContext):
     """Возврат к предпросмотру"""
     await callback.answer()
-    await show_preview(callback.message, state)
+    await show_preview(callback, state)
 
 
 @router.callback_query(PostCreation.preview, F.data == "publish_now")
