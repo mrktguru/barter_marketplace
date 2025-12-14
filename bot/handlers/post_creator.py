@@ -638,7 +638,13 @@ async def publish_priority(callback: CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="◀️ Назад к предпросмотру", callback_data="back_to_preview")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+        # Удаляем старое сообщение с фото и отправляем новое текстовое
+        try:
+            await callback.message.delete()
+        except:
+            pass
+
+        await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
     finally:
         db.close()
