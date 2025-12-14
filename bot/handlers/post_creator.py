@@ -480,6 +480,11 @@ async def show_preview(message_or_callback, state: FSMContext):
 
     is_admin = config.is_admin(telegram_id)
 
+    # Отладка
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"DEBUG: telegram_id={telegram_id}, type={type(telegram_id)}, is_admin={is_admin}, ADMIN_IDS={config.ADMIN_IDS}")
+
     # Формирование текста предпросмотра
     text = "📋 <b>Предпросмотр поста</b>\n\n"
 
@@ -638,7 +643,13 @@ async def publish_priority(callback: CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="◀️ Назад к предпросмотру", callback_data="back_to_preview")]
         ])
 
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+        # Удаляем старое сообщение с фото и отправляем новое текстовое
+        try:
+            await callback.message.delete()
+        except:
+            pass
+
+        await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
     finally:
         db.close()
