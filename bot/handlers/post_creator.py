@@ -480,6 +480,11 @@ async def show_preview(message_or_callback, state: FSMContext):
 
     is_admin = config.is_admin(telegram_id)
 
+    # Отладка
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"DEBUG: telegram_id={telegram_id}, type={type(telegram_id)}, is_admin={is_admin}, ADMIN_IDS={config.ADMIN_IDS}")
+
     # Формирование текста предпросмотра
     text = "📋 <b>Предпросмотр поста</b>\n\n"
 
